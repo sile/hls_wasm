@@ -1,0 +1,10 @@
+[package]
+name = "hls_wasm"
+version = "0.1.0"
+authors = ["Takeru Ohta <phjgt308@gmail.com>"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+hls_m3u8 = { git = "https://github.com/sile/hls_m3u8.git", branch = "without-chrono" }
