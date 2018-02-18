@@ -3,6 +3,7 @@ extern crate hls_m3u8;
 extern crate serde_json;
 #[macro_use]
 extern crate trackable;
+extern crate url;
 
 pub use error::{Error, ErrorKind};
 pub use player::{HlsAction, HlsPlayer};
