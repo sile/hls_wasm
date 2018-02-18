@@ -1,15 +1,33 @@
 extern crate hls_m3u8;
 #[macro_use]
+extern crate serde_json;
+#[macro_use]
 extern crate trackable;
 
 pub use error::{Error, ErrorKind};
+pub use player::HlsPlayer;
 
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
-mod error;
+macro_rules! maybe_error {
+    ($expr:expr) => {
+        if let Err(e) = $expr {
+            return WasmStr::from(e.to_json_string());
+        }
+    }
+}
+macro_rules! ok {
+    () => { WasmStr(Ptr::null()) }
+}
 
-pub type MaybeError = Result<()>;
+pub mod wasm_api;
+
+mod error;
+mod player;
+
+pub type MaybeError = WasmStr;
+
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
@@ -17,31 +35,6 @@ pub enum Action {
     Fetch,
     Play,
     Wait,
-}
-
-#[no_mangle]
-pub fn hls_player_new() -> Ptr<HlsPlayer> {
-    Ptr::new(HlsPlayer { foo: 0, bar: 2 })
-}
-
-#[no_mangle]
-pub fn hls_player_free(mut player: Ptr<HlsPlayer>) {
-    unsafe {
-        player.free();
-    }
-}
-
-#[no_mangle]
-pub fn hls_player_play_master_m3u8(
-    player: Ptr<HlsPlayer>,
-    master_m3u8: WasmStr,
-) -> Ptr<MaybeError> {
-    panic!("foo");
-}
-
-#[no_mangle]
-pub fn hls_player_poll(player: Ptr<HlsPlayer>) -> Ptr<Action> {
-    panic!();
 }
 
 #[no_mangle]
@@ -85,8 +78,16 @@ impl<T> Ptr<T> {
             _phantom: PhantomData,
         }
     }
+    pub fn null() -> Self {
+        Ptr {
+            ptr: 0,
+            _phantom: PhantomData,
+        }
+    }
     pub unsafe fn free(&mut self) {
-        let _ = Box::from_raw(self.ptr as *mut T);
+        if self.ptr != 0 {
+            let _ = Box::from_raw(self.ptr as *mut T);
+        }
     }
 }
 impl<T> Deref for Ptr<T> {
@@ -123,43 +124,8 @@ impl Deref for WasmStr {
         self.0.deref()
     }
 }
-
-#[derive(Debug)]
-pub struct HlsPlayer {
-    foo: usize,
-    bar: usize,
+impl From<String> for WasmStr {
+    fn from(f: String) -> Self {
+        WasmStr(Ptr::new(f))
+    }
 }
-
-// #[repr(C)]
-// #[derive(Debug)]
-// pub struct WasmStr(Memory);
-
-// #[repr(C)]
-// pub struct Memory {
-//     pub ptr: i32,
-//     pub len: i32,
-// }
-// impl Memory {
-//     pub fn allocate(size: i32) -> i32 {
-//         let mem = vec![0; size as usize];
-//         mem.as_ptr() as i32
-//     }
-
-//     pub fn release(&self) {
-//         let ptr = self.ptr as usize;
-//         let len = self.len as usize;
-//         unsafe {
-//             Vec::from_raw_parts(ptr as *mut u8, len, len);
-//         }
-//     }
-// }
-
-// #[no_mangle]
-// pub fn mem_alloc(size: i32) -> i32 {
-//     Memory::allocate(size)
-// }
-
-// #[no_mangle]
-// pub fn mem_free(mem: Memory) {
-//     mem.release();
-// }

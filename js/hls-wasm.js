@@ -16,11 +16,17 @@ class HlsPlayer {
         fetch(master_m3u8_url)
             .then(response => response.arrayBuffer())
             .then(m3u8 => {
-                let actions = this.with_wasm_str(new Uint8Array(m3u8), wasm_m3u8 => {
+                let error = this.with_wasm_str(new Uint8Array(m3u8), wasm_m3u8 => {
                     console.log("[DEBUG] Starts playing master m3u8");
-                    return this.api.hls_player_play_master_m3u8(this.player, wasm_m3u8);
+                    return this.api.hls_player_play(this.player, wasm_m3u8);
                 });
-                console.log(actions);
+                if (error != 0) {
+                    let json = this.wasm_str_into_json(error);
+                    console.log(json);
+                    return Promise.reject(json);
+                }
+
+                this.poll();
             })
             .catch(error => alert(`Cannot fetch ${master_m3u8_url}\n\n[Reason]\n${error}`))
 
@@ -34,6 +40,17 @@ class HlsPlayer {
         let result = callback(wasm_buf);
         this.api.wasm_str_free(wasm_buf);
         return result;
+    }
+
+    wasm_str_into_json(s) {
+        let buf = new Uint8Array(this.api.memory.buffer, this.api.wasm_str_ptr(s), this.api.wasm_str_len(s));
+        let json = JSON.parse(new TextDecoder("utf-8").decode(buf));
+        this.api.wasm_str_free(s);
+        return json;
+    }
+
+    poll() {
+        console.log("[DEBUG] Polls");
     }
 }
 
