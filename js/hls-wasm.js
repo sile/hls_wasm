@@ -16,10 +16,11 @@ class HlsPlayer {
         fetch(master_m3u8_url)
             .then(response => response.arrayBuffer())
             .then(m3u8 => {
-                this.with_wasm_str(new Uint8Array(m3u8), wasm_m3u8 => {
+                let actions = this.with_wasm_str(new Uint8Array(m3u8), wasm_m3u8 => {
                     console.log("[DEBUG] Starts playing master m3u8");
-                    this.api.hls_player_play_master_m3u8(this.player, wasm_m3u8);
+                    return this.api.hls_player_play_master_m3u8(this.player, wasm_m3u8);
                 });
+                console.log(actions);
             })
             .catch(error => alert(`Cannot fetch ${master_m3u8_url}\n\n[Reason]\n${error}`))
 
@@ -30,8 +31,9 @@ class HlsPlayer {
         let wasm_ptr = this.api.wasm_str_ptr(wasm_buf);
         let buf = new Uint8Array(this.api.memory.buffer, wasm_ptr, src_utf8.length);
         buf.set(src_utf8);
-        callback(wasm_buf);
+        let result = callback(wasm_buf);
         this.api.wasm_str_free(wasm_buf);
+        return result;
     }
 }
 

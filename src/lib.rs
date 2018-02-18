@@ -1,7 +1,23 @@
 extern crate hls_m3u8;
+#[macro_use]
+extern crate trackable;
+
+pub use error::{Error, ErrorKind};
 
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
+
+mod error;
+
+pub type MaybeError = Result<()>;
+pub type Result<T> = std::result::Result<T, Error>;
+
+#[derive(Debug)]
+pub enum Action {
+    Fetch,
+    Play,
+    Wait,
+}
 
 #[no_mangle]
 pub fn hls_player_new() -> Ptr<HlsPlayer> {
@@ -16,7 +32,17 @@ pub fn hls_player_free(mut player: Ptr<HlsPlayer>) {
 }
 
 #[no_mangle]
-pub fn hls_player_play_master_m3u8(player: Ptr<HlsPlayer>, master_m3u8: WasmStr) {}
+pub fn hls_player_play_master_m3u8(
+    player: Ptr<HlsPlayer>,
+    master_m3u8: WasmStr,
+) -> Ptr<MaybeError> {
+    panic!("foo");
+}
+
+#[no_mangle]
+pub fn hls_player_poll(player: Ptr<HlsPlayer>) -> Ptr<Action> {
+    panic!();
+}
 
 #[no_mangle]
 pub fn wasm_str_new(size: i32) -> WasmStr {

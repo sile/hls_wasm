@@ -8,3 +8,4 @@ crate-type = ["cdylib"]
 
 [dependencies]
 hls_m3u8 = { git = "https://github.com/sile/hls_m3u8.git", branch = "without-chrono" }
+trackable = "0.2"
