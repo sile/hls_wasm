@@ -5,7 +5,7 @@ extern crate serde_json;
 extern crate trackable;
 
 pub use error::{Error, ErrorKind};
-pub use player::HlsPlayer;
+pub use player::{HlsAction, HlsPlayer};
 
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
@@ -29,41 +29,6 @@ mod player;
 pub type MaybeError = WasmStr;
 
 pub type Result<T> = std::result::Result<T, Error>;
-
-#[derive(Debug)]
-pub enum Action {
-    Fetch,
-    Play,
-    Wait,
-}
-
-#[no_mangle]
-pub fn wasm_str_new(size: i32) -> WasmStr {
-    assert!(size >= 0);
-    WasmStr::new(size as usize)
-}
-
-#[no_mangle]
-pub fn wasm_str_free(mut s: WasmStr) {
-    unsafe {
-        s.free();
-    }
-}
-
-#[no_mangle]
-pub fn wasm_str_ptr(s: WasmStr) -> i32 {
-    s.as_ptr()
-}
-
-#[no_mangle]
-pub fn wasm_str_len(s: WasmStr) -> i32 {
-    s.len() as i32
-}
-
-#[no_mangle]
-pub fn wasm_str_get(s: WasmStr, index: i32) -> i32 {
-    s.as_bytes()[index as usize] as i32
-}
 
 #[derive(Debug)]
 pub struct Ptr<T> {
