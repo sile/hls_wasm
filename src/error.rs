@@ -1,6 +1,8 @@
+use std;
 use hls_m3u8;
 use trackable::Trackable;
 use trackable::error::{ErrorKind as TrackableErrorKind, ErrorKindExt, Event, TrackableError};
+use url;
 
 /// This crate specific error type.
 #[derive(Debug, Clone)]
@@ -45,6 +47,16 @@ impl From<hls_m3u8::Error> for Error {
         match *f.kind() {
             hls_m3u8::ErrorKind::InvalidInput => ErrorKind::InvalidInput.takes_over(f).into(),
         }
+    }
+}
+impl From<url::ParseError> for Error {
+    fn from(f: url::ParseError) -> Self {
+        ErrorKind::InvalidInput.cause(f).into()
+    }
+}
+impl From<std::str::Utf8Error> for Error {
+    fn from(f: std::str::Utf8Error) -> Self {
+        ErrorKind::InvalidInput.cause(f).into()
     }
 }
 
