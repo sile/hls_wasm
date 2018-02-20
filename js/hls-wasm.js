@@ -78,8 +78,21 @@ class HlsPlayer {
         this.api.wasm_str_free(s);
         return json;
     }
+    wasm_bytes_into_uint8array(b) {
+        let array = new Uint8Array(this.api.memory.buffer, this.api.wasm_bytes_ptr(b), this.api.wasm_bytes_len(b));
+        this.api.wasm_bytes_free(b);
+        return array;
+    }
 
     poll() {
+        while (true) {
+            let wasm_bytes = this.api.hls_player_next_segment(this.player);
+            if (wasm_bytes == 0) {
+                break;
+            }
+            let segment = this.wasm_bytes_into_uint8array(wasm_bytes);
+            console.log(`[DEBUG] segment: ${segment.length} bytes`);
+        }
         while (true) {
             let json = this.api.hls_player_next_action(this.player);
             if (json == 0) {
@@ -91,7 +104,7 @@ class HlsPlayer {
             if (action["type"] == "Fetch") {
                 this.fetch_url(action["action_id"], action["url"]);
             } else if (action["type"] == "SetTimeout") {
-                console.log("[ERROR] TODO");
+                console.log(`[ERROR] TODO: ${JSON.stringify(action)}`);
             }
         }
     }
@@ -106,7 +119,7 @@ fetchAndInstantiate("../target/wasm32-unknown-unknown/debug/hls_wasm.wasm", {})
 var hls = new Vue({
     el: '#hls-play',
     data: {
-        master_m3u8_url: "https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8"
+        master_m3u8_url: "http://localhost:3000/_hls/playlist.m3u8"
     },
     methods: {
         hlsPlay: function () {

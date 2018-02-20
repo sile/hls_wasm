@@ -92,4 +92,13 @@ pub mod hls_player {
             MaybeJson::null()
         }
     }
+
+    #[no_mangle]
+    pub fn hls_player_next_segment(mut player: Ptr<HlsPlayer>) -> WasmBytes {
+        if let Some(segment) = player.next_segment() {
+            WasmBytes::from(segment)
+        } else {
+            WasmBytes::null()
+        }
+    }
 }

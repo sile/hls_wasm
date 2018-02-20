@@ -130,6 +130,9 @@ impl WasmBytes {
     pub fn new(size: usize) -> Self {
         WasmBytes(Ptr::new(vec![0; size]))
     }
+    pub fn null() -> Self {
+        WasmBytes(Ptr::null())
+    }
 
     pub fn as_ptr(&self) -> i32 {
         self.deref().as_ptr() as i32
