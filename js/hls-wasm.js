@@ -12,6 +12,19 @@ class HlsPlayer {
         this.player = this.with_wasm_str((new TextEncoder).encode(master_m3u8_url), url => {
             return hls_wasm.exports.hls_player_new(url);
         });
+
+        let media_source = new MediaSource();
+        media_source.addEventListener('sourceopen', () => {
+            console.log("[DEBUG] Event.sourceopen");
+            const mimeCodec = 'video/mp4; codecs="avc1.4dc00d,mp4a.40.2"';
+            this.sb = media_source.addSourceBuffer(mimeCodec);
+        }, false);
+        this.media_source = media_source;
+
+        this.video = document.getElementsByTagName('video')[0];
+        this.video.src = URL.createObjectURL(media_source);
+
+        this.append_count = 0;
     }
 
     play(master_m3u8_url) {
@@ -92,6 +105,16 @@ class HlsPlayer {
             }
             let segment = this.wasm_bytes_into_uint8array(wasm_bytes);
             console.log(`[DEBUG] segment: ${segment.length} bytes`);
+
+            this.sb.appendBuffer(segment);
+            this.append_count += 1;
+            if (this.append_count == 2) {
+                this.sb.addEventListener('updateend', () => {
+                    console.log("[DEBUG] Event.updateend");
+                    this.media_source.endOfStream();
+                    this.video.play();
+                });
+            }
         }
         while (true) {
             let json = this.api.hls_player_next_action(this.player);
@@ -119,7 +142,8 @@ fetchAndInstantiate("../target/wasm32-unknown-unknown/debug/hls_wasm.wasm", {})
 var hls = new Vue({
     el: '#hls-play',
     data: {
-        master_m3u8_url: "http://localhost:3000/_hls/playlist.m3u8"
+        // master_m3u8_url: "http://localhost:3000/_hls/playlist.m3u8"
+        master_m3u8_url: "http://localhost:3000/_hls_fmp4/master.m3u8"
     },
     methods: {
         hlsPlay: function () {
