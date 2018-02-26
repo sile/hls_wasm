@@ -1,5 +1,6 @@
 extern crate hls_m3u8;
 extern crate mpeg2ts;
+extern crate mse_fmp4;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
