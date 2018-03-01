@@ -3,6 +3,9 @@ use std::collections::{BinaryHeap, HashMap, VecDeque};
 use std::str;
 use std::time::Duration;
 use hls_m3u8::{MasterPlaylist, MediaPlaylist};
+use mpeg2ts::ts::TsPacketReader;
+use mse_fmp4::mpeg2_ts;
+use mse_fmp4::io::WriteTo;
 use url::Url;
 use url_serde;
 
@@ -130,10 +133,22 @@ impl HlsPlayerInner {
         }
         Ok(())
     }
-    fn handle_media_segment(&mut self, header: MediaSegmentHeader, segment: &[u8]) -> Result<()> {
-        // TODO: Converts segment format
+    fn handle_media_segment(
+        &mut self,
+        header: MediaSegmentHeader,
+        ts_segment: &[u8],
+    ) -> Result<()> {
+        let fmp4_segments = track!(mpeg2_ts::to_fmp4(TsPacketReader::new(ts_segment)))?;
+
+        let mut initialization_segment = Vec::new();
+        let mut media_segment = Vec::new();
+        track!(fmp4_segments.0.write_to(&mut initialization_segment))?;
+        track!(fmp4_segments.1.write_to(&mut media_segment))?;
+
         self.segments
-            .push(Reverse((header.seq_no, segment.to_owned())));
+            .push(Reverse((header.seq_no * 2, initialization_segment)));
+        self.segments
+            .push(Reverse((header.seq_no * 2 + 1, media_segment)));
         Ok(())
     }
     fn next_action_id(&mut self) -> i32 {

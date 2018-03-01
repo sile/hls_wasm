@@ -1,5 +1,6 @@
 use std;
 use hls_m3u8;
+use mse_fmp4;
 use trackable::Trackable;
 use trackable::error::{ErrorKind as TrackableErrorKind, ErrorKindExt, Event, TrackableError};
 use url;
@@ -57,6 +58,15 @@ impl From<url::ParseError> for Error {
 impl From<std::str::Utf8Error> for Error {
     fn from(f: std::str::Utf8Error) -> Self {
         ErrorKind::InvalidInput.cause(f).into()
+    }
+}
+impl From<mse_fmp4::Error> for Error {
+    fn from(f: mse_fmp4::Error) -> Self {
+        let kind = match *f.kind() {
+            mse_fmp4::ErrorKind::InvalidInput => ErrorKind::InvalidInput,
+            mse_fmp4::ErrorKind::Unsupported | mse_fmp4::ErrorKind::Other => ErrorKind::Other,
+        };
+        kind.takes_over(f).into()
     }
 }
 
