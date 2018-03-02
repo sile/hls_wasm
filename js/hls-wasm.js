@@ -18,13 +18,12 @@ class HlsPlayer {
             console.log("[DEBUG] Event.sourceopen");
             const mimeCodec = 'video/mp4; codecs="avc1.4dc00d,mp4a.40.2"';
             this.sb = media_source.addSourceBuffer(mimeCodec);
+            this.sb.mode = 'sequence';
         }, false);
         this.media_source = media_source;
 
         this.video = document.getElementsByTagName('video')[0];
         this.video.src = URL.createObjectURL(media_source);
-
-        this.append_count = 0;
     }
 
     play(master_m3u8_url) {
@@ -96,26 +95,30 @@ class HlsPlayer {
         this.api.wasm_bytes_free(b);
         return array;
     }
-
-    poll() {
-        while (true) {
-            let wasm_bytes = this.api.hls_player_next_segment(this.player);
-            if (wasm_bytes == 0) {
-                break;
-            }
-            let segment = this.wasm_bytes_into_uint8array(wasm_bytes);
-            console.log(`[DEBUG] segment: ${segment.length} bytes`);
-
-            this.sb.appendBuffer(segment);
-            this.append_count += 1;
-            if (this.append_count == 2) {
-                this.sb.addEventListener('updateend', () => {
-                    console.log("[DEBUG] Event.updateend");
-                    this.media_source.endOfStream();
-                    this.video.play();
-                });
-            }
+    poll_segment() {
+        if (this.sb.updating) {
+            return;
         }
+
+        let wasm_bytes = this.api.hls_player_next_segment(this.player);
+        if (wasm_bytes == 0) {
+            return;
+        }
+
+        let segment = this.wasm_bytes_into_uint8array(wasm_bytes);
+        console.log(`[DEBUG] segment: ${segment.length} bytes`);
+
+        this.sb.appendBuffer(segment);
+        this.sb.addEventListener('updateend', () => {
+            console.log("[DEBUG] Event.updateend");
+            console.log(this.sb.buffered);
+            this.poll_segment();
+            this.video.play(); // TODO: only once
+        });
+    }
+    poll() {
+        this.poll_segment();
+
         while (true) {
             let json = this.api.hls_player_next_action(this.player);
             if (json == 0) {
@@ -142,8 +145,7 @@ fetchAndInstantiate("../target/wasm32-unknown-unknown/debug/hls_wasm.wasm", {})
 var hls = new Vue({
     el: '#hls-play',
     data: {
-        // master_m3u8_url: "http://localhost:3000/_hls/playlist.m3u8"
-        master_m3u8_url: "http://localhost:3000/_hls_fmp4/master.m3u8"
+        master_m3u8_url: "http://localhost/_hls_ts/master.m3u8"
     },
     methods: {
         hlsPlay: function () {

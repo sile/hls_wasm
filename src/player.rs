@@ -57,6 +57,7 @@ struct HlsPlayerInner {
     actions: VecDeque<HlsAction>,
     fetchings: HashMap<ActionId, Fetching>,
     segments: BinaryHeap<Reverse<(SeqNo, Vec<u8>)>>,
+    is_init: bool,
 }
 impl HlsPlayerInner {
     fn new(master_m3u8_url: &str, master_m3u8: &str) -> Result<Self> {
@@ -89,6 +90,7 @@ impl HlsPlayerInner {
             actions,
             fetchings: HashMap::new(),
             segments: BinaryHeap::new(),
+            is_init: false,
         })
     }
     fn next_action(&mut self) -> Option<HlsAction> {
@@ -145,8 +147,11 @@ impl HlsPlayerInner {
         track!(fmp4_segments.0.write_to(&mut initialization_segment))?;
         track!(fmp4_segments.1.write_to(&mut media_segment))?;
 
-        self.segments
-            .push(Reverse((header.seq_no * 2, initialization_segment)));
+        if !self.is_init {
+            self.segments
+                .push(Reverse((header.seq_no * 2, initialization_segment)));
+            self.is_init = true;
+        }
         self.segments
             .push(Reverse((header.seq_no * 2 + 1, media_segment)));
         Ok(())
@@ -171,7 +176,6 @@ pub enum HlsAction {
         action_id: i32,
         #[serde(with = "url_serde")] url: Url,
     },
-    // Play(MediaSegment),
     SetTimeout {
         action_id: i32,
         duration: Duration,
