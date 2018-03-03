@@ -54,7 +54,7 @@ pub mod wasm_bytes {
 }
 pub mod hls_player {
     use {HlsPlayer, MaybeError, MaybeJson, Ptr, WasmBytes, WasmStr};
-    use player::HlsAction;
+    use player::{ActionId, HlsAction};
 
     #[no_mangle]
     pub fn hls_player_new(master_m3u8_url: WasmStr) -> Ptr<HlsPlayer> {
@@ -77,9 +77,10 @@ pub mod hls_player {
     #[no_mangle]
     pub fn hls_player_handle_fetched_bytes(
         mut player: Ptr<HlsPlayer>,
-        action_id: i32,
+        action_id: u64,
         bytes: WasmBytes,
     ) -> MaybeError {
+        let action_id = ActionId::from(action_id);
         maybe_error!(player.handle_fetched_bytes(action_id, &bytes));
         ok!()
     }
