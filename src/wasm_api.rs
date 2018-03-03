@@ -71,6 +71,15 @@ pub mod hls_player {
     }
 
     #[no_mangle]
+    pub fn hls_player_play(player: Ptr<HlsPlayer>, url: WasmStr, m3u8: WasmStr) -> MaybeError {
+        if m3u8.contains("#EXT-X-TARGETDURATION") {
+            hls_player_play_media_playlist(player, url, m3u8)
+        } else {
+            hls_player_play_master_playlist(player, url, m3u8)
+        }
+    }
+
+    #[no_mangle]
     pub fn hls_player_play_master_playlist(
         mut player: Ptr<HlsPlayer>,
         master_playlist_url: WasmStr,
@@ -95,7 +104,7 @@ pub mod hls_player {
     #[no_mangle]
     pub fn hls_player_handle_data(
         mut player: Ptr<HlsPlayer>,
-        action_id: u64,
+        action_id: u32,
         data: WasmBytes,
     ) -> MaybeError {
         let action_id = ActionId::from(action_id);
@@ -104,7 +113,7 @@ pub mod hls_player {
     }
 
     #[no_mangle]
-    pub fn hls_player_handle_timeout(mut player: Ptr<HlsPlayer>, action_id: u64) -> MaybeError {
+    pub fn hls_player_handle_timeout(mut player: Ptr<HlsPlayer>, action_id: u32) -> MaybeError {
         let action_id = ActionId::from(action_id);
         maybe_error!(player.handle_timeout(action_id));
         ok!()

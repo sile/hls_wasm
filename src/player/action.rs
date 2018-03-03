@@ -4,7 +4,7 @@ use url_serde;
 
 use super::StreamId;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize)]
 #[serde(tag = "type")]
 pub enum Action {
     FetchData {
@@ -13,7 +13,7 @@ pub enum Action {
     },
     SetTimeout {
         action_id: ActionId,
-        duration: Duration,
+        duration: u32, //Duration
     },
 }
 impl Action {
@@ -26,10 +26,10 @@ impl Action {
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct ActionId(u64);
+pub struct ActionId(u32);
 impl ActionId {
     pub fn media_playlist_id(&self) -> StreamId {
-        (self.0 >> 48) as u16
+        (self.0 >> 24) as StreamId
     }
 
     fn next(&mut self) -> ActionId {
@@ -38,8 +38,8 @@ impl ActionId {
         id
     }
 }
-impl From<u64> for ActionId {
-    fn from(f: u64) -> Self {
+impl From<u32> for ActionId {
+    fn from(f: u32) -> Self {
         ActionId(f)
     }
 }
@@ -51,7 +51,7 @@ pub struct ActionFactory {
 impl ActionFactory {
     pub fn new(stream_id: StreamId) -> Self {
         ActionFactory {
-            next_action_id: ActionId(u64::from(stream_id) << 48),
+            next_action_id: ActionId(u32::from(stream_id) << 8),
         }
     }
 
@@ -66,6 +66,7 @@ impl ActionFactory {
 
     pub fn set_timeout(&mut self, duration: Duration) -> Action {
         let action_id = self.next_action_id.next();
+        let duration = (duration.as_secs() * 1000) as u32 + duration.subsec_nanos() / 1_000_000;
         Action::SetTimeout {
             action_id,
             duration,

@@ -6,17 +6,15 @@ function fetchAndInstantiate(url, importObject) {
 }
 
 class HlsPlayer {
-    constructor(hls_wasm, master_m3u8_url) {
+    constructor(hls_wasm) {
         this.hls_wasm = hls_wasm;
         this.api = hls_wasm.exports;
-        this.player = this.with_wasm_str((new TextEncoder).encode(master_m3u8_url), url => {
-            return hls_wasm.exports.hls_player_new(url);
-        });
+        this.player = this.api.hls_player_new();
 
         let media_source = new MediaSource();
         media_source.addEventListener('sourceopen', () => {
             console.log("[DEBUG] Event.sourceopen");
-            const mimeCodec = 'video/mp4; codecs="avc1.4dc00d,mp4a.40.2"';
+            const mimeCodec = 'video/mp4; codecs="avc1.4dc00d,mp4a.40.2"'; // TODO
             this.sb = media_source.addSourceBuffer(mimeCodec);
             this.sb.mode = 'sequence';
         }, false);
@@ -24,16 +22,20 @@ class HlsPlayer {
 
         this.video = document.getElementsByTagName('video')[0];
         this.video.src = URL.createObjectURL(media_source);
+        this.video.play();
     }
 
-    play(master_m3u8_url) {
-        fetch(master_m3u8_url)
+    play(m3u8_url) {
+        fetch(m3u8_url)
             .then(response => response.arrayBuffer())
             .then(m3u8 => {
-                let error = this.with_wasm_str(new Uint8Array(m3u8), wasm_m3u8 => {
-                    console.log("[DEBUG] Starts playing master m3u8");
-                    return this.api.hls_player_play(this.player, wasm_m3u8);
-                });
+                let error =
+                    this.with_wasm_str((new TextEncoder).encode(m3u8_url), url => {
+                        return this.with_wasm_str(new Uint8Array(m3u8), m3u8 => {
+                            console.log("[DEBUG] Starts playing m3u8");
+                            return this.api.hls_player_play(this.player, url, m3u8);
+                        })
+                    });
                 if (error != 0) {
                     let json = this.wasm_str_into_json(error);
                     console.log(json);
@@ -42,7 +44,7 @@ class HlsPlayer {
 
                 this.poll();
             })
-            .catch(error => alert(`Cannot fetch ${master_m3u8_url}\n\n[Reason]\n${error}`))
+            .catch(error => alert(`Cannot fetch ${m3u8_url}\n\n[Reason]\n${error}`))
     }
 
     fetch_url(action_id, url) {
@@ -51,7 +53,7 @@ class HlsPlayer {
             .then(response => response.arrayBuffer())
             .then(body => {
                 let error = this.with_wasm_bytes(new Uint8Array(body), bytes => {
-                    return this.api.hls_player_handle_fetched_bytes(this.player, action_id, bytes);
+                    return this.api.hls_player_handle_data(this.player, action_id, bytes);
                 });
                 if (error != 0) {
                     let json = this.wasm_str_into_json(error);
@@ -105,15 +107,16 @@ class HlsPlayer {
             return;
         }
 
-        let segment = this.wasm_bytes_into_uint8array(wasm_bytes);
-        console.log(`[DEBUG] segment: ${segment.length} bytes`);
-
+        let segment =
+            new Uint8Array(this.api.memory.buffer,
+                           this.api.wasm_bytes_ptr(wasm_bytes),
+                           this.api.wasm_bytes_len(wasm_bytes));
+        console.log(`[DEBUG] segment: ${segment.length} bytes (ptr:${this.api.wasm_bytes_ptr(wasm_bytes)})`);
         this.sb.appendBuffer(segment);
+        this.api.wasm_bytes_free(wasm_bytes);
+
         this.sb.addEventListener('updateend', () => {
-            console.log("[DEBUG] Event.updateend");
-            console.log(this.sb.buffered);
             this.poll_segment();
-            this.video.play(); // TODO: only once
         });
     }
     poll() {
@@ -127,10 +130,19 @@ class HlsPlayer {
 
             let action = this.wasm_str_into_json(json);
             console.log(`[DEBUG] Next Action: ${JSON.stringify(action)}`);
-            if (action["type"] == "Fetch") {
+            if (action["type"] == "FetchData") {
                 this.fetch_url(action["action_id"], action["url"]);
             } else if (action["type"] == "SetTimeout") {
-                console.log(`[ERROR] TODO: ${JSON.stringify(action)}`);
+                setTimeout(() => {
+                    let error = this.api.hls_player_handle_timeout(this.player, action["action_id"]);
+                    if (error != 0) {
+                        let json = this.wasm_str_into_json(error);
+                        console.log(json);
+                    };
+                    this.poll();
+                }, action["duration"]);
+            } else {
+                console.log("[WARN] Unknown action");
             }
         }
     }
@@ -145,12 +157,12 @@ fetchAndInstantiate("../target/wasm32-unknown-unknown/debug/hls_wasm.wasm", {})
 var hls = new Vue({
     el: '#hls-play',
     data: {
-        master_m3u8_url: "http://localhost/_hls_ts/master.m3u8"
+        m3u8_url: "http://localhost:8080/hls/foo.m3u8"
     },
     methods: {
         hlsPlay: function () {
-            let player = new HlsPlayer(hls_wasm, this.master_m3u8_url);
-            player.play(this.master_m3u8_url);
+            let player = new HlsPlayer(hls_wasm);
+            player.play(this.m3u8_url);
         }
     }
 })

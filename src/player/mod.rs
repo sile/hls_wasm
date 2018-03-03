@@ -10,7 +10,7 @@ mod media_playlist_handler;
 
 use Result;
 
-pub type StreamId = u16;
+pub type StreamId = u8;
 
 #[derive(Debug)]
 pub enum HlsPlayer {
