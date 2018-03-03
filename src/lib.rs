@@ -19,8 +19,9 @@ use std::ops::{Deref, DerefMut};
 
 macro_rules! maybe_error {
     ($expr:expr) => {
-        if let Err(e) = $expr {
-            return WasmStr::from(e.to_json_string());
+        match $expr {
+            Err(e) => return WasmStr::from(e.to_json_string()),
+            Ok(v) => v
         }
     }
 }

@@ -53,12 +53,14 @@ pub mod wasm_bytes {
 
 }
 pub mod hls_player {
-    use {HlsPlayer, MaybeError, MaybeJson, Ptr, WasmBytes, WasmStr};
+    use url::Url;
+
+    use {Error, HlsPlayer, MaybeError, MaybeJson, Ptr, WasmBytes, WasmStr};
     use player::{ActionId, HlsAction};
 
     #[no_mangle]
-    pub fn hls_player_new(master_m3u8_url: WasmStr) -> Ptr<HlsPlayer> {
-        Ptr::new(HlsPlayer::new(&master_m3u8_url))
+    pub fn hls_player_new() -> Ptr<HlsPlayer> {
+        Ptr::new(HlsPlayer::new())
     }
 
     #[no_mangle]
@@ -69,19 +71,40 @@ pub mod hls_player {
     }
 
     #[no_mangle]
-    pub fn hls_player_play(mut player: Ptr<HlsPlayer>, master_m3u8: WasmStr) -> MaybeError {
-        maybe_error!(player.play(&master_m3u8));
+    pub fn hls_player_play_master_playlist(
+        mut player: Ptr<HlsPlayer>,
+        master_playlist_url: WasmStr,
+    ) -> MaybeError {
+        let url = maybe_error!(Url::parse(&master_playlist_url).map_err(Error::from));
+        maybe_error!(player.play_master_playlist(url));
         ok!()
     }
 
     #[no_mangle]
-    pub fn hls_player_handle_fetched_bytes(
+    pub fn hls_player_play_media_playlist(
+        mut player: Ptr<HlsPlayer>,
+        media_playlist_url: WasmStr,
+    ) -> MaybeError {
+        let url = maybe_error!(Url::parse(&media_playlist_url).map_err(Error::from));
+        maybe_error!(player.play_master_playlist(url));
+        ok!()
+    }
+
+    #[no_mangle]
+    pub fn hls_player_handle_data(
         mut player: Ptr<HlsPlayer>,
         action_id: u64,
-        bytes: WasmBytes,
+        data: WasmBytes,
     ) -> MaybeError {
         let action_id = ActionId::from(action_id);
-        maybe_error!(player.handle_fetched_bytes(action_id, &bytes));
+        maybe_error!(player.handle_data(action_id, &data));
+        ok!()
+    }
+
+    #[no_mangle]
+    pub fn hls_player_handle_timeout(mut player: Ptr<HlsPlayer>, action_id: u64) -> MaybeError {
+        let action_id = ActionId::from(action_id);
+        maybe_error!(player.handle_timeout(action_id));
         ok!()
     }
 

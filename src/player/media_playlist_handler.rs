@@ -89,7 +89,7 @@ impl MediaPlaylistHandler {
     ) -> Result<(Option<Vec<u8>>, Vec<u8>)> {
         if let Some(x) = self.segment_queue.pop_front() {
             if x.1 != action_id {
-                self.segment_queue.push_back(x);
+                self.segment_queue.push_front(x);
             }
         }
         if let Some((_, action_id, url)) = self.segment_queue.pop_front() {
