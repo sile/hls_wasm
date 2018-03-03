@@ -56,7 +56,7 @@ pub mod hls_player {
     use url::Url;
 
     use {Error, HlsPlayer, MaybeError, MaybeJson, Ptr, WasmBytes, WasmStr};
-    use player::{ActionId, HlsAction};
+    use player::{Action, ActionId};
 
     #[no_mangle]
     pub fn hls_player_new() -> Ptr<HlsPlayer> {
@@ -74,9 +74,10 @@ pub mod hls_player {
     pub fn hls_player_play_master_playlist(
         mut player: Ptr<HlsPlayer>,
         master_playlist_url: WasmStr,
+        m3u8: WasmStr,
     ) -> MaybeError {
         let url = maybe_error!(Url::parse(&master_playlist_url).map_err(Error::from));
-        maybe_error!(player.play_master_playlist(url));
+        maybe_error!(player.play_master_playlist(url, &m3u8));
         ok!()
     }
 
@@ -84,9 +85,10 @@ pub mod hls_player {
     pub fn hls_player_play_media_playlist(
         mut player: Ptr<HlsPlayer>,
         media_playlist_url: WasmStr,
+        m3u8: WasmStr,
     ) -> MaybeError {
         let url = maybe_error!(Url::parse(&media_playlist_url).map_err(Error::from));
-        maybe_error!(player.play_master_playlist(url));
+        maybe_error!(player.play_media_playlist(url, &m3u8));
         ok!()
     }
 
@@ -109,7 +111,7 @@ pub mod hls_player {
     }
 
     #[no_mangle]
-    pub fn hls_player_next_action(mut player: Ptr<HlsPlayer>) -> MaybeJson<HlsAction> {
+    pub fn hls_player_next_action(mut player: Ptr<HlsPlayer>) -> MaybeJson<Action> {
         if let Some(action) = player.next_action() {
             MaybeJson::new(&action)
         } else {

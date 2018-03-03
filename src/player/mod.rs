@@ -1,122 +1,70 @@
-use std::str;
-use std::time::Duration;
 use url::Url;
-use url_serde;
 
+pub use self::action::{Action, ActionFactory, ActionId};
 pub use self::master_playlist_handler::MasterPlaylistHandler;
 pub use self::media_playlist_handler::MediaPlaylistHandler;
 
+mod action;
 mod master_playlist_handler;
 mod media_playlist_handler;
 
-use {ErrorKind, Result};
+use Result;
+
+pub type StreamId = u16;
 
 #[derive(Debug)]
-pub struct HlsPlayer {
-    master_playlist_handler: Option<MasterPlaylistHandler>,
-    media_playlist_handlers: Vec<MediaPlaylistHandler>,
+pub enum HlsPlayer {
+    NotStarted,
+    MasterPlaylist(MasterPlaylistHandler),
+    MediaPlayilst(MediaPlaylistHandler),
 }
 impl HlsPlayer {
     pub fn new() -> Self {
-        HlsPlayer {
-            master_playlist_handler: None,
-            media_playlist_handlers: Vec::new(),
-        }
+        HlsPlayer::NotStarted
     }
 
-    pub fn play_master_playlist(&mut self, url: Url) -> Result<()> {
-        track_assert!(
-            self.master_playlist_handler.is_none(),
-            ErrorKind::InvalidInput
-        );
-        track_assert!(
-            self.media_playlist_handlers.is_empty(),
-            ErrorKind::InvalidInput
-        );
-
-        self.master_playlist_handler = Some(MasterPlaylistHandler::new(url));
+    pub fn play_master_playlist(&mut self, url: Url, m3u8: &str) -> Result<()> {
+        let handler = track!(MasterPlaylistHandler::new(url, m3u8))?;
+        *self = HlsPlayer::MasterPlaylist(handler);
         Ok(())
     }
 
-    pub fn play_media_playlist(&mut self, url: Url) -> Result<()> {
-        track_assert!(
-            self.master_playlist_handler.is_none(),
-            ErrorKind::InvalidInput
-        );
-        track_assert!(
-            self.media_playlist_handlers.is_empty(),
-            ErrorKind::InvalidInput
-        );
-
-        let action_id = ActionId::default().clone_for_new_playlist();
-        self.media_playlist_handlers
-            .push(MediaPlaylistHandler::new(action_id, url));
+    pub fn play_media_playlist(&mut self, url: Url, m3u8: &str) -> Result<()> {
+        let action_factory = ActionFactory::new(0);
+        let handler = track!(MediaPlaylistHandler::with_m3u8(action_factory, url, m3u8))?;
+        *self = HlsPlayer::MediaPlayilst(handler);
         Ok(())
     }
 
-    pub fn next_action(&mut self) -> Option<HlsAction> {
-        if let Some(action) = self.master_playlist_handler
-            .as_mut()
-            .and_then(|x| x.next_action())
-        {
-            Some(action)
-        } else {
-            for handler in &mut self.media_playlist_handlers {
-                if let Some(action) = handler.next_action() {
-                    return Some(action);
-                }
-            }
-            None
+    pub fn next_action(&mut self) -> Option<Action> {
+        match *self {
+            HlsPlayer::NotStarted => None,
+            HlsPlayer::MasterPlaylist(ref mut x) => x.next_action(),
+            HlsPlayer::MediaPlayilst(ref mut x) => x.next_action(),
         }
     }
+
     pub fn next_segment(&mut self) -> Option<Vec<u8>> {
-        panic!()
+        match *self {
+            HlsPlayer::NotStarted => None,
+            HlsPlayer::MasterPlaylist(ref mut x) => x.next_segment(),
+            HlsPlayer::MediaPlayilst(ref mut x) => x.next_segment(),
+        }
     }
+
     pub fn handle_data(&mut self, action_id: ActionId, data: &[u8]) -> Result<()> {
-        panic!()
+        match *self {
+            HlsPlayer::NotStarted => Ok(()),
+            HlsPlayer::MasterPlaylist(ref mut x) => track!(x.handle_data(action_id, data)),
+            HlsPlayer::MediaPlayilst(ref mut x) => track!(x.handle_data(action_id, data)),
+        }
     }
+
     pub fn handle_timeout(&mut self, action_id: ActionId) -> Result<()> {
-        panic!()
+        match *self {
+            HlsPlayer::NotStarted => Ok(()),
+            HlsPlayer::MasterPlaylist(ref mut x) => track!(x.handle_timeout(action_id)),
+            HlsPlayer::MediaPlayilst(ref mut x) => track!(x.handle_timeout(action_id)),
+        }
     }
-}
-
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct ActionId(u64);
-impl ActionId {
-    pub fn clone_for_new_playlist(&self) -> ActionId {
-        let playlist_seqno = (self.0 >> 32) + 1;
-        ActionId(playlist_seqno << 32)
-    }
-
-    pub fn next(&mut self) -> ActionId {
-        let id = self.clone();
-        self.0 += 1;
-        id
-    }
-}
-impl From<u64> for ActionId {
-    fn from(f: u64) -> Self {
-        ActionId(f)
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(tag = "type")]
-pub enum HlsAction {
-    FetchPlaylist {
-        action_id: ActionId,
-        #[serde(with = "url_serde")] url: Url,
-    },
-    FetchSegment {
-        action_id: ActionId,
-        #[serde(with = "url_serde")] url: Url,
-    },
-    Fetch {
-        action_id: ActionId,
-        #[serde(with = "url_serde")] url: Url,
-    },
-    SetTimeout {
-        action_id: ActionId,
-        duration: Duration,
-    },
 }

@@ -1,58 +1,48 @@
-use std::collections::VecDeque;
 use hls_m3u8::MasterPlaylist;
 use url::Url;
 
 use {Error, ErrorKind, Result};
-use super::{ActionId, HlsAction, MediaPlaylistHandler};
+use super::{Action, ActionFactory, ActionId, MediaPlaylistHandler};
 
 #[derive(Debug)]
 pub struct MasterPlaylistHandler {
-    master_playlist_url: Url,
-    next_action_id: ActionId,
-    action_queue: VecDeque<HlsAction>,
+    media_playlist_handler: MediaPlaylistHandler,
 }
 impl MasterPlaylistHandler {
-    pub fn new(master_playlist_url: Url) -> Self {
-        let mut next_action_id = ActionId::default();
-        let mut action_queue = VecDeque::new();
-        action_queue.push_back(HlsAction::FetchPlaylist {
-            action_id: next_action_id.next(),
-            url: master_playlist_url.clone(),
-        });
-        MasterPlaylistHandler {
-            master_playlist_url,
-            next_action_id,
-            action_queue,
-        }
-    }
-    pub fn next_action(&mut self) -> Option<HlsAction> {
-        self.action_queue.pop_front()
-    }
-    pub fn handle_playlist(
-        &mut self,
-        _action_id: ActionId,
-        m3u8: &str,
-    ) -> Result<MediaPlaylistHandler> {
+    pub fn new(url: Url, m3u8: &str) -> Result<Self> {
         let master_playlist: MasterPlaylist = track!(m3u8.parse())?;
 
         let stream_inf_tag = track_assert_some!(
             master_playlist.stream_inf_tags().get(0),
             ErrorKind::InvalidInput
         );
-        let media_playlist_url = track!(self.parse_url(stream_inf_tag.uri()))?;
+        let media_playlist_url = track!(
+            Url::options()
+                .base_url(Some(&url))
+                .parse(stream_inf_tag.uri())
+                .map_err(Error::from)
+        )?;
 
-        Ok(MediaPlaylistHandler::new(
-            self.next_action_id.clone_for_new_playlist(),
-            media_playlist_url,
-        ))
+        let action_factory = ActionFactory::new(0);
+        let media_playlist_handler = MediaPlaylistHandler::new(action_factory, media_playlist_url);
+        Ok(MasterPlaylistHandler {
+            media_playlist_handler,
+        })
     }
 
-    fn parse_url(&self, url: &str) -> Result<Url> {
-        track!(
-            Url::options()
-                .base_url(Some(&self.master_playlist_url))
-                .parse(url)
-                .map_err(Error::from)
-        )
+    pub fn next_action(&mut self) -> Option<Action> {
+        self.media_playlist_handler.next_action()
+    }
+
+    pub fn next_segment(&mut self) -> Option<Vec<u8>> {
+        self.media_playlist_handler.next_segment()
+    }
+
+    pub fn handle_data(&mut self, action_id: ActionId, data: &[u8]) -> Result<()> {
+        track!(self.media_playlist_handler.handle_data(action_id, data))
+    }
+
+    pub fn handle_timeout(&mut self, action_id: ActionId) -> Result<()> {
+        track!(self.media_playlist_handler.handle_timeout(action_id))
     }
 }

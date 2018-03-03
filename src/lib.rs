@@ -12,7 +12,7 @@ extern crate url;
 extern crate url_serde;
 
 pub use error::{Error, ErrorKind};
-pub use player::{HlsAction, HlsPlayer};
+pub use player::{Action, HlsPlayer};
 
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
