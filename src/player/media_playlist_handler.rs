@@ -1,5 +1,6 @@
 use std::cmp;
 use std::collections::VecDeque;
+use std::time::Duration;
 use hls_m3u8::MediaPlaylist;
 use mpeg2ts::ts::TsPacketReader;
 use mse_fmp4::mpeg2_ts;
@@ -21,6 +22,8 @@ pub struct MediaPlaylistHandler {
     last_media_sequence: SequenceNumber,
     is_initialized: bool,
     fetch_playlist_action_id: ActionId,
+    segments_total: u32,
+    segment_durations_total: Duration,
 }
 impl MediaPlaylistHandler {
     pub fn new(mut action_factory: ActionFactory, media_playlist_url: Url) -> Self {
@@ -37,6 +40,8 @@ impl MediaPlaylistHandler {
             last_media_sequence: 0,
             is_initialized: false,
             fetch_playlist_action_id: action_id,
+            segments_total: 0,
+            segment_durations_total: Duration::from_secs(0),
         }
     }
 
@@ -97,6 +102,8 @@ impl MediaPlaylistHandler {
                 continue;
             }
             self.last_media_sequence = seq;
+            self.segments_total += 1;
+            self.segment_durations_total += segment.inf_tag().duration();
 
             let segment_url = track!(self.parse_segment_url(segment.uri()))?;
             let ongoing = if self.segment_queue.is_empty() {
@@ -108,6 +115,12 @@ impl MediaPlaylistHandler {
             };
             self.segment_queue.push_back((seq, ongoing, segment_url));
             polling_interval = cmp::min(polling_interval, segment.inf_tag().duration());
+        }
+        if self.segments_total > 0 {
+            let average_segment_duration = self.segment_durations_total / self.segments_total;
+            polling_interval = cmp::min(polling_interval, average_segment_duration);
+        } else {
+            self.segment_durations_total = Duration::from_secs(0);
         }
 
         self.action_queue
