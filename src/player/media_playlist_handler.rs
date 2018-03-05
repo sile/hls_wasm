@@ -52,7 +52,7 @@ impl MediaPlaylistHandler {
     ) -> Result<Self> {
         let mut this = Self::new(action_factory, media_playlist_url);
         let _ = this.next_action();
-        track!(this.handle_playlist(m3u8))?;
+        track!(this.handle_playlist(m3u8, 0))?;
         Ok(this)
     }
 
@@ -73,19 +73,24 @@ impl MediaPlaylistHandler {
         Ok(())
     }
 
-    pub fn handle_data(&mut self, action_id: ActionId, data: &[u8]) -> Result<()> {
+    pub fn handle_data(
+        &mut self,
+        action_id: ActionId,
+        data: &[u8],
+        fetch_duration_ms: u32,
+    ) -> Result<()> {
         if action_id == self.fetch_playlist_action_id {
             use std::str;
 
             let m3u8 = track!(str::from_utf8(data).map_err(Error::from))?;
-            track!(self.handle_playlist(m3u8))?;
+            track!(self.handle_playlist(m3u8, fetch_duration_ms))?;
         } else {
             track!(self.handle_segment(data))?;
         }
         Ok(())
     }
 
-    fn handle_playlist(&mut self, m3u8: &str) -> Result<()> {
+    fn handle_playlist(&mut self, m3u8: &str, fetch_duration_ms: u32) -> Result<()> {
         let playlist: MediaPlaylist = track!(m3u8.parse())?;
         let media_sequence = playlist.media_sequence_tag().map_or(0, |t| t.seq_num());
         while self.segment_queue
@@ -121,6 +126,13 @@ impl MediaPlaylistHandler {
             polling_interval = cmp::min(polling_interval, average_segment_duration);
         } else {
             self.segment_durations_total = Duration::from_secs(0);
+        }
+
+        let fetch_duration = Duration::from_millis(u64::from(fetch_duration_ms));
+        if polling_interval > fetch_duration {
+            polling_interval -= fetch_duration;
+        } else {
+            polling_interval = Duration::from_secs(0);
         }
 
         self.action_queue

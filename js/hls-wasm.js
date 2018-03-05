@@ -49,18 +49,21 @@ class HlsPlayer {
 
     fetch_url(action_id, url) {
         console.log(`[DEBUG] Starts fetching url: [${action_id}] ${url}`);
+        const start_time = new Date();
         fetch(url)
             .then(response => response.arrayBuffer())
             .then(body => {
+                const end_time = new Date();
+                const fetch_duration_ms = end_time - start_time;
                 let error = this.with_wasm_bytes(new Uint8Array(body), bytes => {
-                    return this.api.hls_player_handle_data(this.player, action_id, bytes);
+                    return this.api.hls_player_handle_data(this.player, action_id, bytes, fetch_duration_ms);
                 });
                 if (error != 0) {
                     let json = this.wasm_str_into_json(error);
                     console.log(json);
                     return Promise.reject(JSON.stringify(json));
                 }
-                console.log(`[DEBUG] Handled: [${action_id}] ${url}`);
+                console.log(`[DEBUG] Handled: [${action_id}] ${url} (delay:${fetch_duration_ms})`);
                 this.poll();
             })
             .catch(error => alert(`Cannot fetch url: ${url}: ${error}`))

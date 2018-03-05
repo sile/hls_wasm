@@ -52,11 +52,20 @@ impl HlsPlayer {
         }
     }
 
-    pub fn handle_data(&mut self, action_id: ActionId, data: &[u8]) -> Result<()> {
+    pub fn handle_data(
+        &mut self,
+        action_id: ActionId,
+        data: &[u8],
+        fetch_duration_ms: u32,
+    ) -> Result<()> {
         match *self {
             HlsPlayer::NotStarted => Ok(()),
-            HlsPlayer::MasterPlaylist(ref mut x) => track!(x.handle_data(action_id, data)),
-            HlsPlayer::MediaPlayilst(ref mut x) => track!(x.handle_data(action_id, data)),
+            HlsPlayer::MasterPlaylist(ref mut x) => {
+                track!(x.handle_data(action_id, data, fetch_duration_ms))
+            }
+            HlsPlayer::MediaPlayilst(ref mut x) => {
+                track!(x.handle_data(action_id, data, fetch_duration_ms))
+            }
         }
     }
 

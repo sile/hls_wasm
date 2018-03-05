@@ -38,8 +38,16 @@ impl MasterPlaylistHandler {
         self.media_playlist_handler.next_segment()
     }
 
-    pub fn handle_data(&mut self, action_id: ActionId, data: &[u8]) -> Result<()> {
-        track!(self.media_playlist_handler.handle_data(action_id, data))
+    pub fn handle_data(
+        &mut self,
+        action_id: ActionId,
+        data: &[u8],
+        fetch_duration_ms: u32,
+    ) -> Result<()> {
+        track!(
+            self.media_playlist_handler
+                .handle_data(action_id, data, fetch_duration_ms)
+        )
     }
 
     pub fn handle_timeout(&mut self, action_id: ActionId) -> Result<()> {

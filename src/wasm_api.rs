@@ -106,9 +106,10 @@ pub mod hls_player {
         mut player: Ptr<HlsPlayer>,
         action_id: u32,
         data: WasmBytes,
+        fetch_duration_ms: u32,
     ) -> MaybeError {
         let action_id = ActionId::from(action_id);
-        maybe_error!(player.handle_data(action_id, &data));
+        maybe_error!(player.handle_data(action_id, &data, fetch_duration_ms));
         ok!()
     }
 
