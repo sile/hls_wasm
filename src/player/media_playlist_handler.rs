@@ -100,12 +100,15 @@ impl MediaPlaylistHandler {
             self.segment_queue.pop_front();
         }
 
+        let mut is_updated = false;
         let mut polling_interval = playlist.target_duration_tag().duration();
         for (i, segment) in playlist.segments().iter().enumerate() {
             let seq = media_sequence + i as u64;
             if seq <= self.last_media_sequence {
                 continue;
             }
+            is_updated = true;
+
             self.last_media_sequence = seq;
             self.segments_total += 1;
             self.segment_durations_total += segment.inf_tag().duration();
@@ -128,11 +131,14 @@ impl MediaPlaylistHandler {
             self.segment_durations_total = Duration::from_secs(0);
         }
 
-        let fetch_duration = Duration::from_millis(u64::from(fetch_duration_ms));
-        if polling_interval > fetch_duration {
-            polling_interval -= fetch_duration;
+        let transfer_delay = Duration::from_millis(u64::from(fetch_duration_ms / 2));
+        if polling_interval > transfer_delay {
+            polling_interval -= transfer_delay;
         } else {
             polling_interval = Duration::from_secs(0);
+        }
+        if !is_updated {
+            polling_interval /= 2;
         }
 
         self.action_queue
