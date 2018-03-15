@@ -2,7 +2,7 @@ use std;
 use hls_m3u8;
 use mse_fmp4;
 use trackable::Trackable;
-use trackable::error::{ErrorKind as TrackableErrorKind, ErrorKindExt, Event, TrackableError};
+use trackable::error::{ErrorKind as TrackableErrorKind, ErrorKindExt, TrackableError};
 use url;
 
 /// This crate specific error type.
@@ -19,20 +19,18 @@ impl Error {
             .map(|c| c.to_string())
             .unwrap_or_else(|| "".to_owned());
         let mut trace = Vec::new();
-        for event in self.history().iter().flat_map(|h| h.events()) {
-            if let Event::Track(ref location) = *event {
-                if location.message().is_empty() {
-                    trace.push(json!({
+        for location in self.history().iter().flat_map(|h| h.events()) {
+            if location.message().is_empty() {
+                trace.push(json!({
                             "file": location.file().to_owned(),
                             "line": location.line()
                         }));
-                } else {
-                    trace.push(json!({
+            } else {
+                trace.push(json!({
                             "file": location.file().to_owned(),
                             "line": location.line(),
                             "messsage": location.message().to_owned()
                         }));
-                }
             }
         }
         let json = json!({

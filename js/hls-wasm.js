@@ -152,7 +152,7 @@ class HlsPlayer {
 }
 
 var hls_wasm;
-fetchAndInstantiate("../target/wasm32-unknown-unknown/debug/hls_wasm.wasm", {})
+fetchAndInstantiate("../target/wasm32-unknown-unknown/release/hls_wasm.wasm", {})
     .then(instance => {
         hls_wasm = instance;
     });

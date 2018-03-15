@@ -5,12 +5,12 @@
   </head>
   <body>
     <div id="hls-play">
-      <button v-on:click="hlsPlay">再生</button>
-      <input v-model="m3u8_url">
+      <button v-on:click="hlsPlay">HLS再生</button>
+      <input v-model="m3u8_url" size="100">
     </div>
     <video />
 
-    <script src="../js/vue.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue"></script>
     <script src="../js/hls-wasm.js"></script>
   </body>
 </html>
